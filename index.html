@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Музей УГГУ - Поиск экспонатов</title>
+    
+    <!-- Подключаем Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        header {
+            background: #2c3e50;
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        
+        header p {
+            opacity: 0.9;
+        }
+        
+        .search-section {
+            padding: 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .search-box {
+            margin-bottom: 25px;
+        }
+        
+        .search-box label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+        }
+        
+        .search-box input, .search-box select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        
+        .search-box input:focus, .search-box select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+        }
+        
+        .results-section {
+            padding: 30px;
+        }
+        
+        .result-card {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+        }
+        
+        .result-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+        
+        .result-card h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+        
+        .result-card p {
+            margin: 8px 0;
+            color: #555;
+        }
+        
+        .result-card strong {
+            color: #333;
+        }
+        
+        .badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        
+        .stats {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+            font-size: 18px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏛️ Музей УГГУ</h1>
+            <p>Уральский государственный горный университет - Минералогический музей</p>
+            <p><small>База данных экспонатов в Firebase Realtime Database</small></p>
+        </header>
+        
+        <div class="search-section">
+            <div class="search-box">
+                <label>🔍 Поиск по названию экспоната:</label>
+                <input type="text" id="searchName" placeholder="Например: топаз, турмалин, малахит..." 
+                       onkeyup="autoSearch()">
+            </div>
+            
+            <div class="search-box">
+                <label>📍 Фильтр по этажу:</label>
+                <select id="searchFloor" onchange="autoSearch()">
+                    <option value="all">Все этажи</option>
+                    <option value="1">1 этаж - Холл (гигантские образцы)</option>
+                    <option value="2">2 этаж - Минералогия (драгоценные камни)</option>
+                    <option value="3">3 этаж - Полезные ископаемые и яшмы</option>
+                    <option value="4">4 этаж - Палеонтология и общая геология</option>
+                </select>
+            </div>
+            
+            <div class="search-box">
+                <label>⚖️ Фильтр по типу запроса:</label>
+                <select id="queryType" onchange="autoSearch()">
+                    <option value="all">Все экспонаты</option>
+                    <option value="minerals">Только минералы и камни</option>
+                    <option value="heavy">Тяжёлые (вес > 10 кг)</option>
+                    <option value="rare">Особо редкие</option>
+                </select>
+            </div>
+            
+            <button onclick="performSearch()">🔎 Выполнить поиск</button>
+        </div>
+        
+        <div class="results-section" id="results">
+            <div class="loading">
+                <div class="loader"></div>
+                <p>Загрузка данных из Firebase...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // ВАШИ ДАННЫЕ ИЗ FIREBASE (уже вставлены)
+        // ============================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyCaPvTeYowM5cYFntP1yoUUlgg19Zj4iMs",
+            authDomain: "museum-28cea.firebaseapp.com",
+            databaseURL: "https://museum-28cea-default-rtdb.firebaseio.com",
+            projectId: "museum-28cea",
+            storageBucket: "museum-28cea.firebasestorage.app",
+            messagingSenderId: "10683826655",
+            appId: "1:10683826655:web:c018eae79078644700c46a",
+            measurementId: "G-C4CGKEGSF5"
+        };
+        
+        // Инициализация Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        
+        // Глобальная переменная для хранения всех данных
+        let allData = null;
+        
+        // Автоматический поиск при вводе (с задержкой)
+        let searchTimeout;
+        function autoSearch() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                performSearch();
+            }, 500);
+        }
+        
+        async function performSearch() {
+            const searchName = document.getElementById('searchName').value.toLowerCase();
+            const searchFloor = document.getElementById('searchFloor').value;
+            const queryType = document.getElementById('queryType').value;
+            
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="loading"><div class="loader"></div><p>Поиск...</p></div>';
+            
+            try {
+                // Загружаем данные, если ещё не загружены
+                if (!allData) {
+                    const snapshot = await database.ref('floors').once('value');
+                    allData = snapshot.val();
+                    console.log('Данные загружены:', allData);
+                }
+                
+                let results = [];
+                
+                for (let floorId in allData) {
+                    // Фильтр по этажу
+                    if (searchFloor !== 'all' && floorId !== searchFloor) continue;
+                    
+                    const floor = allData[floorId];
+                    for (let deptId in floor.departments) {
+                        for (let collId in floor.departments[deptId].collections) {
+                            const exhibits = floor.departments[deptId].collections[collId].exhibits;
+                            for (let exId in exhibits) {
+                                const exhibit = exhibits[exId];
+                                
+                                // Дополнительные поля для фильтрации
+                                exhibit.floorId = floorId;
+                                exhibit.floorNumber = floor.floor_number;
+                                exhibit.departmentName = floor.departments[deptId].name;
+                                exhibit.collectionName = floor.departments[deptId].collections[collId].name;
+                                
+                                let matches = true;
+                                
+                                // Фильтр по названию
+                                if (searchName && !exhibit.name.toLowerCase().includes(searchName)) {
+                                    matches = false;
+                                }
+                                
+                                // Фильтр по типу
+                                if (queryType === 'minerals') {
+                                    const minerals = ['топаз', 'турмалин', 'аквамарин', 'гелиодор', 'аметист', 'морион', 'цитрин', 'малахит', 'яшма', 'кварц', 'родонит'];
+                                    if (!minerals.some(m => exhibit.name.toLowerCase().includes(m))) {
+                                        matches = false;
+                                    }
+                                }
+                                
+                                if (queryType === 'heavy') {
+                                    const weightMatch = exhibit.weight.match(/(\d+(?:\.\d+)?)/);
+                                    const weightKg = weightMatch ? parseFloat(weightMatch[1]) : 0;
+                                    if (weightKg < 10) matches = false;
+                                }
+                                
+                                if (queryType === 'rare') {
+                                    const rareKeywords = ['редкий', 'уникальный', 'гигантский', 'ювелирное качество', 'редкий оттенок'];
+                                    const text = (exhibit.special_features || '').toLowerCase();
+                                    if (!rareKeywords.some(k => text.includes(k))) {
+                                        matches = false;
+                                    }
+                                }
+                                
+                                if (matches) {
+                                    results.push(exhibit);
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                displayResults(results);
+                
+            } catch (error) {
+                console.error('Ошибка при поиске:', error);
+                resultsDiv.innerHTML = `<div class="error">❌ Ошибка подключения к Firebase: ${error.message}<br><br>
+                                         <strong>Возможные причины:</strong><br>
+                                         • В Firebase Realtime Database не загружены данные (нужен JSON)<br>
+                                         • В разделе Rules не установлено ".read": true<br><br>
+                                         <strong>Решение:</strong><br>
+                                         1. Перейдите в консоль Firebase → Realtime Database → Rules<br>
+                                         2. Установите: { "rules": { ".read": true, ".write": false } }<br>
+                                         3. Нажмите "Опубликовать"<br>
+                                         4. Импортируйте JSON с экспонатами (файл museum.json)</div>`;
+            }
+        }
+        
+        // Функция отображения результатов
+        function displayResults(exhibits) {
+            const resultsDiv = document.getElementById('results');
+            
+            if (exhibits.length === 0) {
+                resultsDiv.innerHTML = '<div class="stats">😔 Ничего не найдено. Попробуйте изменить параметры поиска.</div>';
+                return;
+            }
+            
+            let html = `<div class="stats">
+                            📊 Найдено экспонатов: <strong>${exhibits.length}</strong>
+                        </div>`;
+            
+            exhibits.forEach(exhibit => {
+                let floorName = '';
+                if (exhibit.floorId === '1') floorName = 'Холл (гигантские образцы)';
+                else if (exhibit.floorId === '2') floorName = 'Минералогия (драгоценные камни)';
+                else if (exhibit.floorId === '3') floorName = 'Полезные ископаемые и яшмы';
+                else if (exhibit.floorId === '4') floorName = 'Палеонтология и общая геология';
+                else floorName = 'Неизвестный этаж';
+                
+                html += `
+                    <div class="result-card">
+                        <h3>🔬 ${exhibit.name || 'Без названия'}</h3>
+                        <p><strong>📍 Этаж:</strong> ${exhibit.floorNumber || '?'} - ${floorName}</p>
+                        <p><strong>🏛️ Отдел/Коллекция:</strong> ${exhibit.departmentName || '?'} → ${exhibit.collectionName || '?'}</p>
+                        <p><strong>🔢 Количество:</strong> ${exhibit.quantity || 'Не указано'} шт.</p>
+                        <p><strong>🎨 Цвет:</strong> ${exhibit.color || 'Не указан'}</p>
+                        <p><strong>⚖️ Вес:</strong> ${exhibit.weight || 'Не указан'}</p>
+                        <p><strong>🏔️ Происхождение:</strong> ${exhibit.origin || 'Не указано'}</p>
+                        <p><strong>✨ Особые признаки:</strong> ${exhibit.special_features || 'Нет'}</p>
+                        <div class="badge">🏛️ Экспонат музея УГГУ</div>
+                    </div>
+                `;
+            });
+            
+            resultsDiv.innerHTML = html;
+        }
+        
+        performSearch();
+    </script>
+</body>
+</html>
